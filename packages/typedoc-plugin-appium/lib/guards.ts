@@ -11,6 +11,7 @@ import {
   LiteralType,
   ReflectionKind,
   Reflection,
+  ProjectReflection,
 } from 'typedoc';
 import {
   NAME_BUILTIN_COMMAND_MODULE,
@@ -20,6 +21,7 @@ import {
   NAME_NEW_METHOD_MAP,
   NAME_PARAMS,
   NAME_PAYLOAD_PARAMS,
+  NAME_TYPES_MODULE,
 } from './converter';
 import {
   BaseDriverDeclarationReflection,
@@ -32,8 +34,9 @@ import {
   MethodDefParamsPropDeclarationReflection,
   PropDeclarationReflection,
   ExecMethodDefParamsPropDeclarationReflection,
+  AppiumTypesReflection,
 } from './converter/types';
-import {AllowedHttpMethod, ExecMethodData} from './model';
+import {AllowedHttpMethod, ExecMethodData, ParentReflection} from './model';
 
 /**
  * Set of HTTP methods allowed by WebDriver; see {@linkcode AllowedHttpMethod}
@@ -50,6 +53,14 @@ const ALLOWED_HTTP_METHODS: Readonly<Set<AllowedHttpMethod>> = new Set([
  */
 export function isDeclarationReflection(value: any): value is DeclarationReflection {
   return value instanceof DeclarationReflection;
+}
+
+export function isParentReflection(value: any): value is ParentReflection {
+  return value instanceof DeclarationReflection || value instanceof ProjectReflection;
+}
+
+export function isAppiumTypesReflection(value: any): value is AppiumTypesReflection {
+  return isParentReflection(value) && value.name === NAME_TYPES_MODULE;
 }
 
 /**

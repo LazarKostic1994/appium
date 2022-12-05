@@ -21,10 +21,10 @@
   "scripts": {
     "build": "cpy resources build",
     "clean": "npx rimraf build/resources",
-    "test": "exit 0",
+    "test": "run-s test:unit",
     "test:e2e": "exit 0",
     "test:smoke": "node ./index.js",
-    "test:unit": "exit 0"
+    "test:unit": "mocha --require ts-node/register \"test/unit/**/*.spec.ts\""
   },
   "bugs": {
     "url": "https://github.com/appium/appium/issues"

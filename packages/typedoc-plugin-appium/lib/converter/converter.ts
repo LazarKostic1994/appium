@@ -19,11 +19,11 @@ import {Context, DeclarationReflection, LiteralType, ReflectionKind} from 'typed
 import {
   isBaseDriverDeclarationReflection,
   isCommandPropDeclarationReflection,
+  isExecMethodDefParamsPropDeclarationReflection,
   isExecMethodDefReflection,
   isHTTPMethodDeclarationReflection,
-  isMethodMapDeclarationReflection,
   isMethodDefParamNamesDeclarationReflection,
-  isExecMethodDefParamsPropDeclarationReflection,
+  isMethodMapDeclarationReflection,
   isReflectionWithReflectedType,
   isRoutePropDeclarationReflection,
 } from '../guards';
@@ -37,9 +37,7 @@ import {
   RouteMap,
 } from '../model';
 import {
-  BaseDriverDeclarationReflection,
   DeclarationReflectionWithReflectedType,
-  ExecMethodDeclarationReflection,
   Guard,
   MethodDefParamsPropDeclarationReflection,
 } from './types';
@@ -82,18 +80,13 @@ export const NAME_COMMAND = 'command';
 export const NAME_PAYLOAD_PARAMS = 'payloadParams';
 
 /**
- * Name of the module which contains the builtin method map
- */
-export const NAME_BUILTIN_COMMAND_MODULE = '@appium/base-driver';
-
-/**
  * Converts declarations to information about Appium commands
  */
-export class CommandConverter {
+export class AppiumConverter {
   /**
    * The project context of TypeDoc
    */
-  #ctx: Context;
+  protected ctx: Context;
 
   /**
    * Custom logger
@@ -106,7 +99,7 @@ export class CommandConverter {
    * @param log Logger
    */
   constructor(ctx: Context, log: AppiumPluginLogger) {
-    this.#ctx = ctx;
+    this.ctx = ctx;
     this.#log = log.createChildLogger('converter');
   }
 
@@ -116,18 +109,9 @@ export class CommandConverter {
    * @returns Command info for entire project
    */
   public convert(): ModuleCommands {
-    const ctx = this.#ctx;
+    const ctx = this.ctx;
     const {project} = ctx;
     const projectCommands: ModuleCommands = new Map();
-
-    // handle baseDriver if it's present
-    const baseDriver = project.getChildByName(NAME_BUILTIN_COMMAND_MODULE);
-    if (baseDriver && isBaseDriverDeclarationReflection(baseDriver)) {
-      this.#log.verbose('Found %s', NAME_BUILTIN_COMMAND_MODULE);
-      projectCommands.set(baseDriver, this.#convertBaseDriver(baseDriver));
-    } else {
-      this.#log.verbose('Did not find %s', NAME_BUILTIN_COMMAND_MODULE);
-    }
 
     // convert all modules (or just project if no modules)
     const modules = project.getChildrenByKind(ReflectionKind.Module);
@@ -149,23 +133,12 @@ export class CommandConverter {
     return projectCommands;
   }
 
-  #convertBaseDriver(baseDriver: BaseDriverDeclarationReflection): CommandInfo {
-    const baseDriverRoutes = this.#convertMethodMap(baseDriver);
-    if (!baseDriverRoutes.size) {
-      throw new TypeError(`Could not find any commands in BaseDriver!?`);
-    }
-
-    // no execute commands in BaseDriver
-    return new CommandInfo(baseDriverRoutes);
-  }
-
   /**
    * Finds names of parameters of a command in a method def
    * @param propName Either required or optional params
    * @param refl Parent reflection (`params` prop of method def)
    * @returns List of parameter names
    */
-
   #convertCommandParams(
     propName: typeof NAME_OPTIONAL | typeof NAME_REQUIRED,
     refl?: MethodDefParamsPropDeclarationReflection
@@ -255,7 +228,7 @@ export class CommandConverter {
    * @param refl - Some reflection we want to inspect. Could refer to a module or a class
    * @returns Lookup of routes to {@linkcode CommandMap} objects
    */
-  #convertMethodMap(refl: DeclarationReflection): RouteMap {
+  protected convertMethodMap(refl: DeclarationReflection): RouteMap {
     const routes: RouteMap = new Map();
 
     const methodMap = isBaseDriverDeclarationReflection(refl)
@@ -344,7 +317,7 @@ export class CommandConverter {
 
     for (const classRefl of classReflections) {
       this.#log.verbose('Converting class %s', classRefl.name);
-      const newMethodMap = this.#convertMethodMap(classRefl);
+      const newMethodMap = this.convertMethodMap(classRefl);
 
       if (newMethodMap.size) {
         routes = new Map([...routes, ...newMethodMap]);
@@ -390,7 +363,7 @@ export class CommandConverter {
  * @returns All commands found in the project
  */
 export function convertCommands(ctx: Context, log: AppiumPluginLogger): ModuleCommands {
-  return new CommandConverter(ctx, log).convert();
+  return new AppiumConverter(ctx, log).convert();
 }
 
 /**

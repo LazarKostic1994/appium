@@ -1,6 +1,7 @@
 import {
   DeclarationReflection,
   LiteralType,
+  ProjectReflection,
   ReflectionFlags,
   ReflectionKind,
   ReflectionType,
@@ -9,8 +10,9 @@ import {
   TypeOperatorType,
 } from 'typedoc';
 import {AllowedHttpMethod} from '../model';
+import {NAME_TYPES_MODULE} from './appium-types';
+import {NAME_BUILTIN_COMMAND_MODULE} from './base-driver';
 import {
-  NAME_BUILTIN_COMMAND_MODULE,
   NAME_EXECUTE_METHOD_MAP,
   NAME_METHOD_MAP,
   NAME_NEW_METHOD_MAP,
@@ -105,3 +107,8 @@ export type ExecMethodDefParamsPropDeclarationReflection =
   DeclarationReflectionWithReflectedType & {
     name: typeof NAME_PARAMS;
   };
+
+export type AppiumTypesReflection = (DeclarationReflection | ProjectReflection) & {
+  name: typeof NAME_TYPES_MODULE;
+  kind: ReflectionKind.Module;
+};
