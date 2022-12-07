@@ -12,11 +12,13 @@ import {
   ReflectionKind,
   Reflection,
   ProjectReflection,
+  ReferenceType,
 } from 'typedoc';
 import {
   NAME_BUILTIN_COMMAND_MODULE,
   NAME_COMMAND,
   NAME_EXECUTE_METHOD_MAP,
+  NAME_EXTERNAL_DRIVER,
   NAME_METHOD_MAP,
   NAME_NEW_METHOD_MAP,
   NAME_PARAMS,
@@ -35,6 +37,9 @@ import {
   PropDeclarationReflection,
   ExecMethodDefParamsPropDeclarationReflection,
   AppiumTypesReflection,
+  InterfaceDeclarationReflection,
+  ExternalDriverDeclarationReflection,
+  AsyncMethodDeclarationReflection,
 } from './converter/types';
 import {AllowedHttpMethod, ExecMethodData, ParentReflection} from './model';
 
@@ -185,9 +190,7 @@ export function isHTTPMethodDeclarationReflection(
   value: any
 ): value is HTTPMethodDeclarationReflection {
   return (
-    isReflectionWithReflectedType(value) &&
-    isPropertyKind(value) &&
-    isAllowedHTTPMethod(value.originalName)
+    isReflectionWithReflectedType(value) && isPropertyKind(value) && isAllowedHTTPMethod(value.name)
   );
 }
 
@@ -236,4 +239,28 @@ export function isExecMethodDefParamsPropDeclarationReflection(
   value: any
 ): value is ExecMethodDefParamsPropDeclarationReflection {
   return isReflectionWithReflectedType(value) && value.name === NAME_PAYLOAD_PARAMS;
+}
+
+export function isInterfaceDeclarationReflection(
+  value: any
+): value is InterfaceDeclarationReflection {
+  return isDeclarationReflection(value) && value.kindOf(ReflectionKind.Interface);
+}
+
+export function isExternalDriverDeclarationReflection(
+  value: any
+): value is ExternalDriverDeclarationReflection {
+  return isInterfaceDeclarationReflection(value) && value.name === NAME_EXTERNAL_DRIVER;
+}
+
+export function isAsyncMethodDeclarationReflection(
+  value: any
+): value is AsyncMethodDeclarationReflection {
+  return Boolean(
+    isDeclarationReflection(value) &&
+      value.kindOf(ReflectionKind.Method) &&
+      value.signatures?.find(
+        (sig) => sig.type instanceof ReferenceType && sig.type.name === 'Promise'
+      )
+  );
 }

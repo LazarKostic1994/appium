@@ -19,8 +19,8 @@
   "author": "https://github.com/appium",
   "types": "./build/plugin.d.ts",
   "scripts": {
-    "build": "cpy resources build",
-    "clean": "npx rimraf build/resources",
+    "build": "cpy lib/theme/resources build",
+    "clean": "npx rimraf build/lib/theme/resources",
     "test": "run-s test:unit",
     "test:e2e": "exit 0",
     "test:smoke": "node ./index.js",

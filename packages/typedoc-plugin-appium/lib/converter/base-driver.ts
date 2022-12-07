@@ -1,8 +1,8 @@
 import {isBaseDriverDeclarationReflection} from '../guards';
 import {AppiumPluginLogger} from '../logger';
 import {CommandInfo, ModuleCommands} from '../model';
-import {AppiumConverter} from './converter';
-import {BaseDriverDeclarationReflection} from './types';
+import {ExternalConverter} from './external';
+import {BaseDriverDeclarationReflection, KnownMethods} from './types';
 import {Context} from 'typedoc';
 
 /**
@@ -10,7 +10,7 @@ import {Context} from 'typedoc';
  */
 export const NAME_BUILTIN_COMMAND_MODULE = '@appium/base-driver';
 
-export class BaseDriverConverter extends AppiumConverter {
+export class BaseDriverConverter extends ExternalConverter {
   #log: AppiumPluginLogger;
 
   /**
@@ -18,18 +18,9 @@ export class BaseDriverConverter extends AppiumConverter {
    * @param ctx Typedoc Context
    * @param log Logger
    */
-  constructor(ctx: Context, log: AppiumPluginLogger) {
-    super(ctx, log);
+  constructor(ctx: Context, knownMethods: KnownMethods, log: AppiumPluginLogger) {
+    super(ctx, knownMethods, log);
     this.#log = log.createChildLogger('converter');
-  }
-  protected convertBaseDriver(baseDriver: BaseDriverDeclarationReflection): CommandInfo {
-    const baseDriverRoutes = this.convertMethodMap(baseDriver);
-    if (!baseDriverRoutes.size) {
-      throw new TypeError(`Could not find any commands in BaseDriver!?`);
-    }
-
-    // no execute commands in BaseDriver
-    return new CommandInfo(baseDriverRoutes);
   }
 
   public override convert(): ModuleCommands {
@@ -44,5 +35,15 @@ export class BaseDriverConverter extends AppiumConverter {
       this.#log.verbose('Did not find %s', NAME_BUILTIN_COMMAND_MODULE);
     }
     return baseDriverCommands;
+  }
+
+  protected convertBaseDriver(baseDriver: BaseDriverDeclarationReflection): CommandInfo {
+    const baseDriverRoutes = this.convertMethodMap(baseDriver);
+    if (!baseDriverRoutes.size) {
+      throw new TypeError(`Could not find any commands in BaseDriver!?`);
+    }
+
+    // no execute commands in BaseDriver
+    return new CommandInfo(baseDriverRoutes);
   }
 }

@@ -28,11 +28,13 @@ module.exports = (wallaby) => {
     files: [
       './packages/*/lib/**/*.(j|t)s',
       './packages/*/test/**/*helper*.(j|t)s',
-      './packages/*/test/**/*mock*.js',
+      './packages/*/test/**/*mock*.(j|t)s',
       './packages/*/package.json',
       './packages/*/test/**/fixture?(s)/**/*',
-      './packages/typedoc-plugin-appium/resources/**/*',
-      // below this are fixtures
+      {
+        instrument: false,
+        pattern: './packages/typedoc-plugin-appium/resources/**/*',
+      },
       {
         binary: true,
         pattern: './packages/support/test/unit/assets/sample_binary.plist',
@@ -51,13 +53,12 @@ module.exports = (wallaby) => {
     ],
     testFramework: 'mocha',
     tests: [
-      './packages/*/test/unit/**/*.spec.js',
-      './packages/*/test/unit/**/*.spec.ts',
+      './packages/*/test/unit/**/*.spec.(j|t)s',
       '!**/local_appium_home/**',
     ],
-    // workers: {
-    // restart: true,
-    // },
+    workers: {
+      restart: true,
+    },
     setup() {
       // This copied out of `./test/setup.js`, which uses `@babel/register`.
       // Wallaby doesn't need `@babel/register` (and it probably makes Wallaby slow),

@@ -11,7 +11,7 @@ import path from 'node:path';
 /**
  * Path to resources directory, containing all templates and partials.
  */
-const RESOURCES_PATH = path.join(__dirname, '..', '..', 'resources');
+const RESOURCES_PATH = path.join(__dirname, 'resources');
 
 /**
  * Path to templates directory within {@linkcode RESOURCES_PATH}
