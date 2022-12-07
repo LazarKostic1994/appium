@@ -17,7 +17,7 @@
     "typedoc-plugin"
   ],
   "author": "https://github.com/appium",
-  "types": "./build/plugin.d.ts",
+  "types": "./build/lib/plugin.d.ts",
   "scripts": {
     "build": "cpy lib/theme/resources build",
     "clean": "npx rimraf build/lib/theme/resources",
