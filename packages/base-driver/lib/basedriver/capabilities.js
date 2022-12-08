@@ -40,7 +40,7 @@ function mergeCaps(primary = {}, secondary = {}) {
 
 // Validates caps against a set of constraints
 /**
- * @template {Constraints} [C={}]
+ * @template {Constraints} [C=import('type-fest').EmptyObject]
  * @param {Capabilities<C>} caps
  * @param {C} [constraints]
  * @param {ValidateCapsOpts} [opts]
@@ -348,7 +348,9 @@ function promoteAppiumOptions(originalCaps) {
     }
 
     if (!_.isPlainObject(appiumOptions)) {
-      throw new errors.SessionNotCreatedError(`The ${PREFIXED_APPIUM_OPTS_CAP} capability must be an object`);
+      throw new errors.SessionNotCreatedError(
+        `The ${PREFIXED_APPIUM_OPTS_CAP} capability must be an object`
+      );
     }
     if (_.isEmpty(appiumOptions)) {
       return obj;
@@ -377,7 +379,7 @@ function promoteAppiumOptions(originalCaps) {
     };
     const preprocessedOptions = _(appiumOptions)
       .mapKeys((value, key) => verifyIfAcceptable(key))
-      .mapKeys((value, key) => shouldAddVendorPrefix(key) ? `${APPIUM_VENDOR_PREFIX}${key}` : key)
+      .mapKeys((value, key) => (shouldAddVendorPrefix(key) ? `${APPIUM_VENDOR_PREFIX}${key}` : key))
       .value();
     // warn if we are going to overwrite any keys on the base caps object
     const overwrittenKeys = _.intersection(Object.keys(obj), Object.keys(preprocessedOptions));
@@ -388,8 +390,8 @@ function promoteAppiumOptions(originalCaps) {
       );
     }
     return _.cloneDeep({
-      ...(_.omit(obj, PREFIXED_APPIUM_OPTS_CAP)),
-      ...preprocessedOptions
+      ..._.omit(obj, PREFIXED_APPIUM_OPTS_CAP),
+      ...preprocessedOptions,
     });
   };
 

@@ -24,7 +24,7 @@
     "test": "run-s test:unit",
     "test:e2e": "exit 0",
     "test:smoke": "node ./index.js",
-    "test:unit": "mocha --require ts-node/register \"test/unit/**/*.spec.ts\""
+    "test:unit": "mocha -t 5s \"test/unit/**/*.spec.ts\""
   },
   "bugs": {
     "url": "https://github.com/appium/appium/issues"

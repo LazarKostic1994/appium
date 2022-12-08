@@ -1,4 +1,4 @@
-import {Context, ProjectReflection, ReflectionKind} from 'typedoc';
+import {Context, ReflectionKind} from 'typedoc';
 import {
   isAppiumTypesReflection,
   isAsyncMethodDeclarationReflection,
@@ -6,22 +6,22 @@ import {
 } from '../guards';
 import {AppiumPluginLogger} from '../logger';
 import {ParentReflection} from '../model';
+import {AppiumConverter} from './converter';
 import {KnownMethods} from './types';
+import {findParentByName} from './utils';
 
 export const NAME_TYPES_MODULE = '@appium/types';
 
 export const NAME_EXTERNAL_DRIVER = 'ExternalDriver';
 
-export class AppiumTypesConverter {
-  #log: AppiumPluginLogger;
-
+export class BaseMethodsConverter extends AppiumConverter<KnownMethods> {
   /**
    * Creates a child logger for this instance
    * @param ctx Typedoc Context
    * @param log Logger
    */
   constructor(protected ctx: Context, log: AppiumPluginLogger) {
-    this.#log = log.createChildLogger('converter');
+    super(ctx, log.createChildLogger('types'));
   }
 
   public convertKnownMethods(module: ParentReflection): KnownMethods {
@@ -42,15 +42,11 @@ export class AppiumTypesConverter {
 
     const typesModule = findParentByName(project, NAME_TYPES_MODULE);
     if (typesModule && isAppiumTypesReflection(typesModule)) {
-      this.#log.verbose('Found %s', NAME_TYPES_MODULE);
+      this.log.verbose('Found %s', NAME_TYPES_MODULE);
       knownMethods = this.convertKnownMethods(typesModule);
     } else {
-      this.#log.verbose('Did not find %s', NAME_TYPES_MODULE);
+      this.log.verbose('Did not find %s', NAME_TYPES_MODULE);
     }
     return knownMethods;
   }
-}
-
-function findParentByName(project: ProjectReflection, name: string) {
-  return project.name === name ? project : project.getChildByName(name);
 }

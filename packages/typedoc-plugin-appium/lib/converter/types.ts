@@ -1,4 +1,6 @@
+import {Class} from 'type-fest';
 import {
+  Context,
   DeclarationReflection,
   LiteralType,
   ReferenceType,
@@ -9,8 +11,9 @@ import {
   TupleType,
   TypeOperatorType,
 } from 'typedoc';
+import {AppiumPluginLogger} from '../logger';
 import {AllowedHttpMethod, ParentReflection} from '../model';
-import {NAME_EXTERNAL_DRIVER, NAME_TYPES_MODULE} from './appium-types';
+import {NAME_EXTERNAL_DRIVER, NAME_TYPES_MODULE} from './base-methods';
 import {NAME_BUILTIN_COMMAND_MODULE} from './base-driver';
 import {
   NAME_METHOD_MAP,
@@ -144,3 +147,7 @@ export type AsyncMethodDeclarationReflection = WithSomeType<ReferenceType, Decla
   WithKind<ReflectionKind.Method, DeclarationReflection>;
 
 export type KnownMethods = Map<string, DeclarationReflection>;
+
+export interface MethodDefParam {
+  name: string;
+}

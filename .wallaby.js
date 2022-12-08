@@ -19,7 +19,7 @@ module.exports = (wallaby) => {
         retainLines: true,
         sourceMaps: true,
       }),
-      '**/*.ts?(x)': wallaby.compilers.typeScript({useStandardDefaults: true}),
+      '**/*.ts?(x)': wallaby.compilers.typeScript(),
     },
     debug: true,
     env: {
@@ -52,14 +52,11 @@ module.exports = (wallaby) => {
       '!**/local_appium_home/**',
     ],
     testFramework: 'mocha',
-    tests: [
-      './packages/*/test/unit/**/*.spec.(j|t)s',
-      '!**/local_appium_home/**',
-    ],
+    tests: ['./packages/*/test/unit/**/*.spec.(j|t)s', '!**/local_appium_home/**'],
     workers: {
       restart: true,
     },
-    setup() {
+    setup(wallaby) {
       // This copied out of `./test/setup.js`, which uses `@babel/register`.
       // Wallaby doesn't need `@babel/register` (and it probably makes Wallaby slow),
       // but we need the other stuff, so here it is.
@@ -74,6 +71,9 @@ module.exports = (wallaby) => {
 
       // `should()` is only necessary when working with some `null` or `undefined` values.
       global.should = chai.should();
+
+      const mocha = wallaby.testFramework;
+      mocha.timeout(5000);
     },
     runMode: 'onsave',
   };

@@ -2,6 +2,16 @@
   "name": "@appium/base-plugin",
   "version": "1.10.5",
   "description": "The base plugin used to create Appium 2.0 plugins",
+  "keywords": [
+    "automation",
+    "javascript",
+    "selenium",
+    "webdriver",
+    "ios",
+    "android",
+    "firefoxos",
+    "testing"
+  ],
   "homepage": "https://appium.io",
   "bugs": {
     "url": "https://github.com/appium/appium/issues"
@@ -39,17 +49,6 @@
     "appium"
   ],
   "typedoc": {
-    "entryPoint": "./build/lib/plugin.js"
-  },
-  "homepage": "https://appium.io",
-  "keywords": [
-    "automation",
-    "javascript",
-    "selenium",
-    "webdriver",
-    "ios",
-    "android",
-    "firefoxos",
-    "testing"
-  ]
+    "entryPoint": "./lib/plugin.js"
+  }
 }

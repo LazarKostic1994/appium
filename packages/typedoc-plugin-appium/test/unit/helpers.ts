@@ -1,9 +1,13 @@
-import pkgDir from 'pkg-dir';
 import {expect} from 'chai';
+import assert from 'node:assert';
 import path from 'node:path';
+import pkgDir from 'pkg-dir';
 import readPkg from 'read-pkg';
-import {Application, LogLevel, TSConfigReader} from 'typedoc';
+import {Constructor} from 'type-fest';
+import {Application, Context, Converter, LogLevel, TSConfigReader} from 'typedoc';
 import ts from 'typescript';
+import {AppiumConverter} from '../../lib/converter';
+import {AppiumPluginLogger} from '../../lib/logger';
 
 export const TSConfigs = {
   Types: require.resolve('@appium/types/tsconfig.json'),
@@ -15,7 +19,8 @@ export async function getEntryPoint(pkgName: string): Promise<string> {
     throw new TypeError(`Could not find package ${pkgName}!`);
   }
   const pkg = await readPkg({cwd});
-  return path.join(cwd, pkg.typedoc?.entryPoint ?? pkg.main);
+  assert(pkg.typedoc.entryPoint, `Could not find entry point for ${pkgName}!`);
+  return path.join(cwd, pkg.typedoc.entryPoint);
 }
 
 export function getTypedocApp(pkgName: string, entryPoints: string[] = []): Application {
@@ -42,4 +47,31 @@ export function getConverterProgram(app: Application): ts.Program {
   expect(errors).to.be.empty;
 
   return program;
+}
+type ExtraParams<F> = F extends (ctx: Context, log: AppiumPluginLogger, ...rest: infer R) => any
+  ? R
+  : never;
+export async function initConverter<T, C extends AppiumConverter<T>, A extends any = any>(
+  cls: Constructor<C, [Context, AppiumPluginLogger, ...A[]]>,
+  pkgName: string,
+  extraArgs: A[] = []
+): Promise<C> {
+  const entryPoint = await getEntryPoint(pkgName);
+  const app = getTypedocApp(pkgName, [entryPoint]);
+  const program = getConverterProgram(app);
+  const sourceFile = program.getSourceFile(entryPoint);
+  assert(sourceFile, `Could not find source file ${entryPoint}!`);
+  return await new Promise((resolve) => {
+    app.converter.on(Converter.EVENT_RESOLVE_BEGIN, (ctx: Context) => {
+      const log = new AppiumPluginLogger(app.logger, 'appium-test');
+      resolve(new cls(ctx, log, ...extraArgs));
+    });
+    app.converter.convert([
+      {
+        displayName: 'convert-test',
+        program,
+        sourceFile,
+      },
+    ]);
+  });
 }

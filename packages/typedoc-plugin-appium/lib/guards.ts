@@ -144,9 +144,9 @@ export function isBaseDriverDeclarationReflection(
   value: any
 ): value is BaseDriverDeclarationReflection {
   return (
-    isDeclarationReflection(value) &&
+    isParentReflection(value) &&
     value.name === NAME_BUILTIN_COMMAND_MODULE &&
-    value.kindOf(ReflectionKind.Module)
+    value.kindOf(ReflectionKind.Module | ReflectionKind.Project)
   );
 }
 

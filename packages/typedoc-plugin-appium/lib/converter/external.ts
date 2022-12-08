@@ -1,5 +1,13 @@
+import pluralize from 'pluralize';
 import _ from 'lodash';
-import {Comment, Context, DeclarationReflection, LiteralType, ReflectionKind} from 'typedoc';
+import {
+  Comment,
+  Context,
+  DeclarationReflection,
+  LiteralType,
+  Reflection,
+  ReflectionKind,
+} from 'typedoc';
 import {
   isAsyncMethodDeclarationReflection,
   isBaseDriverDeclarationReflection,
@@ -22,6 +30,7 @@ import {
   ParentReflection,
   RouteMap,
 } from '../model';
+import {AppiumConverter} from './converter';
 import {Guard, KnownMethods, MethodDefParamsPropDeclarationReflection} from './types';
 
 /**
@@ -65,17 +74,7 @@ export const NAME_PAYLOAD_PARAMS = 'payloadParams';
  * Converts declarations to information about Appium commands
  */
 
-export class ExternalConverter {
-  /**
-   * Custom logger
-   */
-  #log: AppiumPluginLogger;
-
-  /**
-   * The project context of TypeDoc
-   */
-  protected ctx: Context;
-
+export class ExternalConverter extends AppiumConverter<ModuleCommands> {
   /**
    * Creates a child logger for this instance
    * @param ctx Typedoc Context
@@ -83,11 +82,18 @@ export class ExternalConverter {
    */
   constructor(
     ctx: Context,
-    protected readonly knownMethods: KnownMethods,
-    log: AppiumPluginLogger
+    log: AppiumPluginLogger,
+    protected readonly knownMethods: KnownMethods
   ) {
-    this.ctx = ctx;
-    this.#log = log.createChildLogger('converter');
+    super(ctx, log);
+  }
+
+  findOverridenMethodDef(methodRef: DeclarationReflection): Reflection | undefined {
+    if (isAsyncMethodDeclarationReflection(methodRef)) {
+      return (
+        methodRef.inheritedFrom?.reflection ?? this.knownMethods.get(methodRef.name) ?? methodRef
+      );
+    }
   }
 
   /**
@@ -104,18 +110,36 @@ export class ExternalConverter {
     const modules = project.getChildrenByKind(ReflectionKind.Module);
     if (modules.length) {
       for (const mod of modules) {
-        this.#log.verbose('Converting module %s', mod.name);
+        this.log.verbose('Converting module %s', mod.name);
         const cmdInfo = this.#convertModuleClasses(mod);
         if (cmdInfo.hasData) {
-          projectCommands.set(mod, this.#convertModuleClasses(mod));
+          projectCommands.set(mod, cmdInfo);
         }
-        this.#log.info('Converted module %s', mod.name);
       }
     } else {
-      projectCommands.set(project, this.#convertModuleClasses(project));
+      const cmdInfo = this.#convertModuleClasses(project);
+      if (cmdInfo.hasData) {
+        projectCommands.set(project, cmdInfo);
+      }
     }
 
-    this.#log.info('Found commands in %d module(s)', projectCommands.size);
+    if (projectCommands.size) {
+      const routeSum = _.sumBy([...projectCommands], ([, info]) => info.routeMap.size);
+      const execMethodSum = _.sumBy(
+        [...projectCommands],
+        ([, info]) => info.execMethodDataSet.size
+      );
+      this.log.info(
+        `Found ${pluralize('command', routeSum, true)} and ${pluralize(
+          'execute method',
+          execMethodSum,
+          true
+        )} of %d/${pluralize('module', modules.length, true)}`,
+        projectCommands.size
+      );
+    } else {
+      this.log.warn('No commands nor execute methods found in entire project!');
+    }
 
     return projectCommands;
   }
@@ -135,89 +159,104 @@ export class ExternalConverter {
       ? refl.getChildByName(NAME_METHOD_MAP)
       : refl.getChildByName(NAME_NEW_METHOD_MAP);
 
-    if (!isMethodMapDeclarationReflection(methodMap)) {
-      // this is not unusual
-      this.#log.verbose('No {MethodMap} found in class %s', refl.name);
-      return routes;
-    }
-
-    const routeProps = filterChildrenByKind(methodMap, ReflectionKind.Property);
-
-    if (!routeProps.length) {
-      this.#log.warn('No routes found in {MethodMap} of class %s', refl.name);
-      return routes;
-    }
-
-    for (const routeProp of routeProps) {
-      const {originalName: route} = routeProp;
-
-      if (!isRoutePropDeclarationReflection(routeProp)) {
-        this.#log.warn('Empty route in %s.%s', refl.name, route);
-        continue;
+    const matchedMethods = new Set();
+    if (methodMap) {
+      if (!isMethodMapDeclarationReflection(methodMap)) {
+        // this is not unusual
+        this.log.verbose('No method map found in class %s; skipping', refl.name);
+        return routes;
       }
 
-      const httpMethodProps = filterChildrenByGuard(routeProp, isHTTPMethodDeclarationReflection);
+      const routeProps = filterChildrenByKind(methodMap, ReflectionKind.Property);
 
-      if (!httpMethodProps.length) {
-        this.#log.warn('No HTTP methods found in route %s.%s', refl.name, route);
-        continue;
+      if (!routeProps.length) {
+        this.log.warn('No routes found in MethodMap of class %s; skipping', refl.name);
+        return routes;
       }
 
-      for (const httpMethodProp of httpMethodProps) {
-        const {comment: mapComment, name: httpMethod} = httpMethodProp;
+      for (const routeProp of routeProps) {
+        const {originalName: route} = routeProp;
 
-        const commandProp = findChildByGuard(httpMethodProp, isCommandPropDeclarationReflection);
-
-        // commandProp is optional.
-        if (!commandProp) {
+        if (!isRoutePropDeclarationReflection(routeProp)) {
+          this.log.warn('Empty route in %s.%s', refl.name, route);
           continue;
         }
 
-        if (!_.isString(commandProp.type.value) || _.isEmpty(commandProp.type.value)) {
-          this.#log.warn('Empty command name found in %s.%s.%s', refl.name, route, httpMethod);
+        const httpMethodProps = filterChildrenByGuard(routeProp, isHTTPMethodDeclarationReflection);
+
+        if (!httpMethodProps.length) {
+          this.log.warn('No HTTP methods found in route %s.%s', refl.name, route);
           continue;
         }
 
-        const command = String(commandProp.type.value);
+        for (const httpMethodProp of httpMethodProps) {
+          const {comment: mapComment, name: httpMethod} = httpMethodProp;
 
-        let comment: Comment | undefined;
+          const commandProp = findChildByGuard(httpMethodProp, isCommandPropDeclarationReflection);
 
-        const method = methods.get(command);
-
-        if (method) {
-          this.#log.verbose(`Found method matching command ${command}`);
-          if (method.comment) {
-            // use the comment on the method implementation itself
-            comment = method.comment;
-          } else {
-            // use the comment from the method's parent class, or failing that, `ExternalDriver`
-            comment =
-              method.inheritedFrom?.reflection?.comment ?? this.knownMethods.get(command)?.comment;
+          // commandProp is optional.
+          if (!commandProp) {
+            continue;
           }
-        } else {
-          // use the comment from the `MethodMap` or failing that, `ExternalDriver`
-          comment = mapComment ?? this.knownMethods.get(command)?.comment;
+
+          if (!_.isString(commandProp.type.value) || _.isEmpty(commandProp.type.value)) {
+            this.log.warn('Empty command name found in %s.%s.%s', refl.name, route, httpMethod);
+            continue;
+          }
+
+          const command = String(commandProp.type.value);
+
+          let comment: Comment | undefined;
+
+          const method = methods.get(command);
+
+          if (method) {
+            this.log.verbose(`Found method matching command ${command}`);
+            if (method.comment) {
+              // use the comment on the method implementation itself
+              comment = method.comment;
+            } else {
+              // use the comment from the method's parent class, or failing that, `ExternalDriver`
+              comment =
+                method.inheritedFrom?.reflection?.comment ??
+                this.knownMethods.get(command)?.comment;
+            }
+          } else {
+            // use the comment from the `MethodMap` or failing that, `ExternalDriver`
+            comment = mapComment ?? this.knownMethods.get(command)?.comment;
+          }
+
+          if (methods.has(command) || this.knownMethods.has(command)) {
+            this.log.verbose('Matched command %s', command);
+            matchedMethods.add(command);
+          }
+
+          const payloadParamsProp = findChildByGuard(
+            httpMethodProp,
+            isExecMethodDefParamsPropDeclarationReflection
+          );
+          const requiredParams = this.#convertRequiredCommandParams(payloadParamsProp);
+          const optionalParams = this.#convertOptionalCommandParams(payloadParamsProp);
+
+          const commandMap: CommandMap = routes.get(route) ?? new Map();
+
+          commandMap.set(command, {
+            command,
+            requiredParams,
+            optionalParams,
+            httpMethod: httpMethod as AllowedHttpMethod,
+            route,
+            comment,
+          });
+
+          routes.set(route, commandMap);
         }
+      }
+    }
 
-        const payloadParamsProp = findChildByGuard(
-          httpMethodProp,
-          isExecMethodDefParamsPropDeclarationReflection
-        );
-        const requiredParams = this.#convertRequiredCommandParams(payloadParamsProp);
-        const optionalParams = this.#convertOptionalCommandParams(payloadParamsProp);
-
-        const commandMap: CommandMap = routes.get(route) ?? new Map();
-
-        commandMap.set(command, {
-          command,
-          requiredParams,
-          optionalParams,
-          httpMethod: httpMethod as AllowedHttpMethod,
-          route,
-          comment,
-        });
-
-        routes.set(route, commandMap);
+    for (const [name, method] of Object.entries(methods)) {
+      if (!matchedMethods.has(name)) {
+        this.log.warn(`Found known method not in map: ${name}`);
       }
     }
 
@@ -228,7 +267,7 @@ export class ExternalConverter {
     return new Map(
       classRefl
         .getChildrenByKind(ReflectionKind.Method)
-        .filter(isAsyncMethodDeclarationReflection)
+        .filter((ref) => Boolean(this.findOverridenMethodDef(ref)))
         .map((method) => [method.name, method])
     );
   }
@@ -288,7 +327,7 @@ export class ExternalConverter {
 
       if (!commandProp) {
         // this is unusual
-        this.#log.warn(
+        this.log.warn(
           'Execute method map in %s has no "command" property for %s',
           refl.name,
           script
@@ -297,7 +336,7 @@ export class ExternalConverter {
       }
 
       if (!_.isString(commandProp.type.value) || _.isEmpty(commandProp.type.value)) {
-        this.#log.warn(
+        this.log.warn(
           'Execute method map in %s has an empty or invalid "command" property for %s',
           refl.name,
           script
@@ -335,9 +374,9 @@ export class ExternalConverter {
     const classReflections = parent.getChildrenByKind(ReflectionKind.Class);
 
     for (const classRefl of classReflections) {
-      this.#log.verbose('Converting class %s', classRefl.name);
+      this.log.verbose('Converting class %s', classRefl.name);
 
-      const methods: KnownMethods = this.findMethodsInClass(classRefl);
+      const methods = this.findMethodsInClass(classRefl);
 
       const newMethodMap = this.convertMethodMap(classRefl, methods);
 
@@ -349,7 +388,7 @@ export class ExternalConverter {
       if (executeMethodMap.size) {
         executeMethods = new Set([...executeMethods, ...executeMethodMap]);
       }
-      this.#log.verbose('Converted class %s', classRefl.name);
+      this.log.verbose('Converted class %s', classRefl.name);
     }
 
     return new CommandInfo(routes, executeMethods);
