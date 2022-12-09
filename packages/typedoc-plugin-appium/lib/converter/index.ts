@@ -17,8 +17,8 @@
 import {Context} from 'typedoc';
 import {AppiumPluginLogger} from '../logger';
 import {ModuleCommands} from '../model';
-import {BaseMethodsConverter} from './base-methods';
-import {BaseDriverConverter} from './base-driver';
+import {BuiltinExternalDriverConverter} from './builtin-external-driver';
+import {BuiltinMethodMapConverter} from './builtin-method-map';
 import {ExternalConverter} from './external';
 
 /**
@@ -30,20 +30,20 @@ import {ExternalConverter} from './external';
 export function convertCommands(ctx: Context, parentLog: AppiumPluginLogger): ModuleCommands {
   const log = parentLog.createChildLogger('converter');
 
-  const typesConverter = new BaseMethodsConverter(ctx, log);
-  const knownCommands = typesConverter.convert();
+  const bedConverter = new BuiltinExternalDriverConverter(ctx, log);
+  const builtinMethods = bedConverter.convert();
 
-  const baseDriverConverter = new BaseDriverConverter(ctx, log, knownCommands);
-  const baseDriverCommands = baseDriverConverter.convert();
+  const bmmConverter = new BuiltinMethodMapConverter(ctx, log, builtinMethods);
+  const builtinCommands = bmmConverter.convert();
 
-  const externalConverter = new ExternalConverter(ctx, log, knownCommands);
+  const externalConverter = new ExternalConverter(ctx, log, builtinMethods);
   const externalCommands = externalConverter.convert();
 
-  return new Map([...baseDriverCommands, ...externalCommands]);
+  return new Map([...builtinCommands, ...externalCommands]);
 }
 
-export * from './base-methods';
-export * from './base-driver';
+export * from './builtin-external-driver';
+export * from './builtin-method-map';
 export * from './builder';
 export * from './external';
 export * from './converter';

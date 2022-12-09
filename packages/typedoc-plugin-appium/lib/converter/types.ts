@@ -11,16 +11,10 @@ import {
   TupleType,
   TypeOperatorType,
 } from 'typedoc';
-import {AppiumPluginLogger} from '../logger';
 import {AllowedHttpMethod, ParentReflection} from '../model';
-import {NAME_EXTERNAL_DRIVER, NAME_TYPES_MODULE} from './base-methods';
-import {NAME_BUILTIN_COMMAND_MODULE} from './base-driver';
-import {
-  NAME_METHOD_MAP,
-  NAME_NEW_METHOD_MAP,
-  NAME_EXECUTE_METHOD_MAP,
-  NAME_PARAMS,
-} from './external';
+import {NAME_EXTERNAL_DRIVER, NAME_TYPES_MODULE} from './builtin-external-driver';
+import {NAME_BUILTIN_COMMAND_MODULE, NAME_METHOD_MAP} from './builtin-method-map';
+import {NAME_NEW_METHOD_MAP, NAME_EXECUTE_METHOD_MAP, NAME_PARAMS} from './external';
 
 type WithName<S extends string, R> = R & {
   name: S;
@@ -146,8 +140,10 @@ export type ExternalDriverDeclarationReflection = WithName<
 export type AsyncMethodDeclarationReflection = WithSomeType<ReferenceType, DeclarationReflection> &
   WithKind<ReflectionKind.Method, DeclarationReflection>;
 
-export type KnownMethods = Map<string, DeclarationReflection>;
+export type KnownMethods = Map<string, AsyncMethodDeclarationReflection>;
 
 export interface MethodDefParam {
   name: string;
 }
+
+export type ClassDeclarationReflection = WithKind<ReflectionKind.Class, DeclarationReflection>;

@@ -40,6 +40,7 @@ import {
   InterfaceDeclarationReflection,
   ExternalDriverDeclarationReflection,
   AsyncMethodDeclarationReflection,
+  ClassDeclarationReflection,
 } from './converter/types';
 import {AllowedHttpMethod, ExecMethodData, ParentReflection} from './model';
 
@@ -263,4 +264,8 @@ export function isAsyncMethodDeclarationReflection(
         (sig) => sig.type instanceof ReferenceType && sig.type.name === 'Promise'
       )
   );
+}
+
+export function isClassDeclarationReflection(value: any): value is ClassDeclarationReflection {
+  return Boolean(isDeclarationReflection(value) && value.kindOf(ReflectionKind.Class));
 }

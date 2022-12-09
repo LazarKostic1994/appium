@@ -2,8 +2,8 @@ import {expect} from 'chai';
 import {createSandbox, SinonSandbox} from 'sinon';
 import {Context} from 'typedoc';
 import {
-  BaseMethodsConverter,
-  BaseDriverConverter,
+  BuiltinExternalDriverConverter,
+  BuiltinMethodMapConverter,
   KnownMethods,
   NAME_TYPES_MODULE,
   NAME_BUILTIN_COMMAND_MODULE,
@@ -28,8 +28,8 @@ describe('BaseDriverConverter', function () {
       const knownMethods: KnownMethods = new Map();
       const ctx = sandbox.createStubInstance(Context);
       const log = sandbox.createStubInstance(AppiumPluginLogger);
-      expect(new BaseDriverConverter(ctx, log, knownMethods)).to.be.an.instanceof(
-        BaseDriverConverter
+      expect(new BuiltinMethodMapConverter(ctx, log, knownMethods)).to.be.an.instanceof(
+        BuiltinMethodMapConverter
       );
     });
   });
@@ -41,14 +41,16 @@ describe('BaseDriverConverter', function () {
       });
 
       it(`should find commands in ${NAME_BUILTIN_COMMAND_MODULE}`, async function () {
-        const converter = await initConverter(BaseDriverConverter, NAME_BUILTIN_COMMAND_MODULE, [
-          new Map(),
-        ]);
+        const converter = await initConverter(
+          BuiltinMethodMapConverter,
+          NAME_BUILTIN_COMMAND_MODULE,
+          [new Map()]
+        );
         expect(converter.convert().size).to.be.above(0);
       });
 
       it(`should only work with ${NAME_BUILTIN_COMMAND_MODULE}`, async function () {
-        const converter = await initConverter(BaseDriverConverter, '@appium/fake-plugin', [
+        const converter = await initConverter(BuiltinMethodMapConverter, '@appium/fake-plugin', [
           new Map(),
         ]);
         expect(converter.convert()).to.be.empty;

@@ -2,13 +2,12 @@ import {expect} from 'chai';
 import {createSandbox, SinonSandbox} from 'sinon';
 import {Context} from 'typedoc';
 import {
-  BaseMethodsConverter,
+  BuiltinExternalDriverConverter,
   ExternalConverter,
   KnownMethods,
   NAME_TYPES_MODULE,
 } from '../../../lib/converter';
 import {AppiumPluginLogger} from '../../../lib/logger';
-import {ModuleCommands} from '../../../lib/model';
 import {initConverter} from '../helpers';
 
 const NAME_FAKE_DRIVER_MODULE = '@appium/fake-driver';
@@ -38,7 +37,7 @@ describe('ExternalConverter', function () {
       let knownMethods: KnownMethods;
 
       before(async function () {
-        const converter = await initConverter(BaseMethodsConverter, NAME_TYPES_MODULE);
+        const converter = await initConverter(BuiltinExternalDriverConverter, NAME_TYPES_MODULE);
         knownMethods = converter.convert();
       });
       it(`should find commands in ${NAME_FAKE_DRIVER_MODULE}`, async function () {
@@ -46,12 +45,11 @@ describe('ExternalConverter', function () {
           knownMethods,
         ]);
         const result = converter.convert();
-        console.log(result);
         expect(result.size).to.be.above(0);
       });
 
       it(`should only work with an Appium extension`, async function () {
-        const converter = await initConverter(ExternalConverter, '@appium/types', [knownMethods]);
+        const converter = await initConverter(ExternalConverter, NAME_TYPES_MODULE, [knownMethods]);
         expect(converter.convert()).to.be.empty;
       });
     });
