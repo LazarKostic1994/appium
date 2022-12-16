@@ -4,7 +4,7 @@
 
 import B from 'bluebird';
 import glob from 'glob';
-import {env, fs} from '@appium/support';
+import {env, fs, util} from '@appium/support';
 import _ from 'lodash';
 import path from 'path';
 import YAML from 'yaml';
@@ -156,7 +156,14 @@ export class Manifest {
   });
 
   /**
-   * Searches `APPIUM_HOME` for installed extensions and adds them to the manifest.
+   * Searches `APPIUM_HOME` for installed extensions and adds them to the
+   * manifest.
+   *
+   * Updates extensions found in the manifest via rebuilding.
+   *
+   * Note that entries won't be _removed_ if they are invalid or missing.  This
+   * might need to change, as I can envision a situation where a user sees
+   * repeated warnings about unloadable extensions and complains about it.
    * @returns {Promise<boolean>} `true` if any extensions were added, `false` otherwise.
    */
   async syncWithInstalledExtensions() {
@@ -168,15 +175,75 @@ export class Manifest {
      * @param {string} filepath - Path to a `package.json`
      * @returns {Promise<void>}
      */
-    const onMatch = async (filepath) => {
+    const handlePackage = async (filepath) => {
       try {
+        /** @type {import('type-fest').PackageJson} */
         const pkg = JSON.parse(await fs.readFile(filepath, 'utf8'));
-        if (isDriver(pkg) || isPlugin(pkg)) {
-          const changed = this.addExtensionFromPackage(pkg, filepath);
-          didChange = didChange || changed;
+        if (isExtension(pkg)) {
+          try {
+            didChange = this.addExtensionFromPackage(pkg, filepath) || didChange;
+          } finally {
+            if (isDriver(pkg)) {
+              manifestDrivers.delete(pkg.name);
+            } else {
+              manifestPlugins.delete(pkg.name);
+            }
+          }
         }
-      } catch {}
+      } catch (err) {
+        if (/** @type {NodeJS.ErrnoException} */ (err).code !== 'ENOENT') {
+          log.warn(err);
+        }
+      }
     };
+
+    /**
+     * Given a mapping of missing-on-disk extensions, remove them from the manifest
+     * @param {ExtensionType} extType
+     * @param {Map<string, {installPath?: string, name: string}>} missingExtMap
+     */
+    const removeMissing = (extType, missingExtMap) => {
+      log.warn(
+        `Removing ${util.pluralize('reference', missingExtMap.size)} to ${util.pluralize(
+          extType,
+          missingExtMap.size,
+          true
+        )} in the manifest that could not be found on disk: ${_.map(
+          [...missingExtMap.values()],
+          'name'
+        ).join(', ')}; `
+      );
+      for (const {name} of missingExtMap.values()) {
+        delete this.#data[`${extType}s`][name];
+      }
+      didChange = true;
+    };
+
+    /**
+     * Lookup of drivers found in the manifest, by package name.
+     *
+     * Used to remove missing drivers from the manifest.
+     * @type {Map<string, {installPath?: string, name: string}>}
+     */
+    const manifestDrivers = new Map(
+      Object.entries(this.#data.drivers).map(([name, driver]) => [
+        driver.pkgName,
+        {installPath: driver.installPath, name},
+      ])
+    );
+
+    /**
+     * Lookup of plugins found in the manifest, by package name
+     *
+     * Used to remove missing drivers from the manifest.
+     * @type {Map<string, {installPath?: string, name: string}>}
+     */
+    const manifestPlugins = new Map(
+      Object.entries(this.#data.plugins).map(([name, plugin]) => [
+        plugin.pkgName,
+        {installPath: plugin.installPath, name},
+      ])
+    );
 
     /**
      * A list of `Promise`s which read `package.json` files looking for Appium extensions.
@@ -184,7 +251,7 @@ export class Manifest {
      */
     const queue = [
       // look at `package.json` in `APPIUM_HOME` only
-      onMatch(path.join(this.#appiumHome, 'package.json')),
+      handlePackage(path.join(this.#appiumHome, 'package.json')),
     ];
 
     // add dependencies to the queue
@@ -202,12 +269,31 @@ export class Manifest {
       )
         .on('error', reject)
         .on('match', (filepath) => {
-          queue.push(onMatch(filepath));
+          queue.push(handlePackage(filepath));
         });
     });
 
-    // wait for everything to finish
+    // wait for the extensions found by glob to be processed
     await B.all(queue);
+
+    // there might be stuff left over that isn't where we'd expect it to be.
+    // use the `installPath` field, if present, to find it.
+    for (const {installPath} of [...manifestDrivers.values(), ...manifestPlugins.values()]) {
+      if (installPath) {
+        queue.push(handlePackage(installPath));
+      }
+    }
+
+    // wait for extensions-by-`installPath` to be processed
+    await B.all(queue);
+
+    if (manifestDrivers.size) {
+      removeMissing(DRIVER_TYPE, manifestDrivers);
+    }
+
+    if (manifestPlugins.size) {
+      removeMissing(PLUGIN_TYPE, manifestPlugins);
+    }
 
     return didChange;
   }

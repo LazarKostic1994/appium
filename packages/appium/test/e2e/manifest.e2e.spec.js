@@ -8,7 +8,7 @@ import {
   EXT_SUBCOMMAND_LIST as LIST,
 } from '../../lib/constants';
 import {FAKE_DRIVER_DIR, resolveFixture} from '../helpers';
-import {installLocalExtension, runAppiumJson} from './e2e-helpers';
+import {installLocalExtension, runAppiumJson, runAppiumRaw} from './e2e-helpers';
 
 const {expect} = chai;
 
@@ -100,6 +100,44 @@ describe('manifest handling', function () {
 
       it('should update the manifest file to the latest schema revision', function () {
         expect(manifest.schemaRev).to.equal(3);
+      });
+    });
+  });
+
+  describe('sync installed extensions', function () {
+    beforeEach(async function () {
+      await resetAppiumHome();
+      await fs.mkdirp(path.dirname(manifestPath));
+    });
+
+    describe('when the manifest contains missing extensions', function () {
+      /** @type {string} */
+      let stderr;
+
+      beforeEach(async function () {
+        await fs.copyFile(resolveFixture('manifest/v2.yaml'), manifestPath);
+
+        // prove that the manifest contains the extensions in the first place!
+        const manifest = await readManifest();
+        expect(manifest.drivers.fake).to.exist;
+        expect(manifest.plugins.fake).to.exist;
+
+        ({stderr} = await runAppiumRaw(appiumHome, [DRIVER_TYPE, LIST], {}));
+      });
+
+      it('should remove the missing extensions', async function () {
+        const manifest = await readManifest();
+        expect(manifest.drivers.fake).to.not.exist;
+        expect(manifest.plugins.fake).to.not.exist;
+      });
+
+      it('should log warnings', function () {
+        expect(stderr).to.include(
+          'Removing reference to 1 driver in the manifest that could not be found on disk: fake'
+        );
+        expect(stderr).to.include(
+          'Removing reference to 1 plugin in the manifest that could not be found on disk: fake'
+        );
       });
     });
   });
