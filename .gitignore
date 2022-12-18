@@ -64,3 +64,9 @@ jsdoc-out
 *.tgz
 typedoc-docs
 packages/appium/docs/*/reference
+.users
+.db
+.properties
+.keys
+.pem
+
