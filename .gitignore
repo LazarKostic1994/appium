@@ -63,3 +63,4 @@ jsdoc-out
 *.tgz
 typedoc-docs
 packages/appium/docs/*/reference
+.bin
