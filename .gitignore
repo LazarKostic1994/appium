@@ -33,7 +33,7 @@ __pycache__
 # csharp
 *.pyc
 *.pdb
-.bin
+*.bin
 .vs
 
 old
